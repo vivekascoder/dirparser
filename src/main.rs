@@ -2,12 +2,12 @@ mod component;
 
 use glob::glob;
 use std::{
-    fs,
+    fs::{self, DirEntry},
     path::{Component, Path, PathBuf},
 };
 
 fn is_excluded(gitignore_path: &str, p: &Path) -> bool {
-    let content = fs::read_to_string(gitignore_path).expect("Gitignore file can't be loaded.");
+    let content = fs::read_to_string(gitignore_path).unwrap();
     let mut result: Vec<_> = content
         .as_str()
         .split("\n")
@@ -24,16 +24,37 @@ fn is_excluded(gitignore_path: &str, p: &Path) -> bool {
     result.push("./.git");
 
     for pattern in result {
-        // println!("Pattern: {}", pattern);
         if is_match(pattern, p.to_str().unwrap()) {
             return true;
         }
     }
     return false;
 }
+/**
+ * if 0
+ * then
+ * |-
+ * else
+ * loop
+ * |  |  |-
+ */
+
+fn give_prefix_char(l: &usize) -> String {
+    let mut s = String::from("");
+
+    for i in 0..*l {
+        if i == (*l - 1) {
+            s.push_str("├");
+        } else {
+            s.push_str("│");
+            s.push_str("   ");
+        }
+    }
+    return s;
+}
 
 fn is_match(pattern: &str, val: &str) -> bool {
-    let mut p: String;
+    let p: String;
     let v: String;
     if pattern.starts_with("/") {
         p = format!(".{}", pattern);
@@ -51,12 +72,11 @@ fn is_match(pattern: &str, val: &str) -> bool {
         v = format!("{}", val);
     }
 
-    // println!("is_matcj >> {}", p);
     // Match pattern.
-    let s = glob(&p).unwrap().map(|f| f.unwrap()).find(|f| {
-        // println!("is_match: {} == {}", v, f.to_str().unwrap());
-        &v == f.to_str().unwrap()
-    });
+    let s = glob(&p)
+        .unwrap()
+        .map(|f| f.unwrap())
+        .find(|f| &v == f.to_str().unwrap());
 
     match s {
         Some(some) => {
@@ -69,6 +89,40 @@ fn is_match(pattern: &str, val: &str) -> bool {
         None => {
             return false;
         }
+    }
+}
+
+fn pndp<'a>(dirs: &'a mut Vec<PathBuf>, dir: &DirEntry, level: usize) {
+    let width = 2;
+    dirs.push(dir.path());
+
+    if dir.path().is_dir() {
+        println!(
+            "{}{} {}",
+            give_prefix_char(&(level + 1)),
+            "─".repeat(level + 1 * width),
+            dir.path().as_path().to_str().unwrap()
+        );
+    } else {
+        println!(
+            "{}{} {}",
+            give_prefix_char(&(level + 1)),
+            "─".repeat(width),
+            match dir
+                .path()
+                .as_path()
+                .components()
+                .collect::<Vec<Component>>()
+                .pop()
+                .unwrap()
+            {
+                Component::Normal(v) => v.to_str().unwrap(),
+                Component::Prefix(p) => p.as_os_str().to_str().unwrap(),
+                Component::RootDir => "/",
+                Component::CurDir => "./",
+                Component::ParentDir => "../",
+            }
+        );
     }
 }
 
@@ -92,10 +146,7 @@ fn recursive_parse<'a>(
             // If it's a dir recursively call.
             if dir_entry.path().is_dir() {
                 // If it's a directory.
-                // println!("{}", dir_entry.path().as_path().to_str().unwrap());
-
-                dirs.push(dir_entry.path());
-                println!("+{} {:?}", "-".repeat(l * 4), dir_entry.path());
+                pndp(dirs, dir_entry, l);
 
                 recursive_parse(
                     dir_entry.path().as_path().to_str().unwrap(),
@@ -105,18 +156,7 @@ fn recursive_parse<'a>(
                 )
                 .unwrap();
             } else {
-                dirs.push(dir_entry.path());
-                println!(
-                    "+{} {:?}",
-                    "-".repeat(l * 4),
-                    dir_entry
-                        .path()
-                        .as_path()
-                        .components()
-                        .collect::<Vec<Component>>()
-                        .pop()
-                        .unwrap()
-                );
+                pndp(dirs, dir_entry, l);
             }
         }
     }
@@ -129,31 +169,7 @@ fn main() -> Result<(), std::io::Error> {
 
     // Parse the gitignore
     let gitignore_path = "./.gitignore";
-    // let gitignore_file = gitignore::File::new(&gitignore_path).unwrap();
-
-    // is_excluded(".gitignore", &Path::new("./target/debug/deps"));
 
     let results = recursive_parse("./", &gitignore_path, &mut dirs, None)?;
-    // for i in glob("./**/debug/*").unwrap() {
-    //     match i {
-    //         Ok(v) => {
-    //             println!("OK: {:?}", v);
-    //         }
-    //         Err(e) => {
-    //             println!("Err: {:?}", e);
-    //         }
-    //     }
-    // }
-
-    // println!("{:?}", results);
-    // println!(
-    //     "Is match: {}",
-    //     is_match("**/debug/*", "target/debug/dirparser.d")
-    // );
-    // Return result.
-    // for i in results {
-    //     println!("+ {}", i.to_str().unwrap());
-    // }
-    component::main();
     Ok(())
 }
