@@ -33,6 +33,14 @@ It's just a toy project and a lot of things doesn't work :).
 - [ ] Add a config.
 - [ ] Read command line arguments.
 
+## Obscure .gitignore behaviour.
+
+RN, it don't support all the specs of gitignore as listed in [GITIGNORE.md](./GITIGNORE.md) and because of the differnce if behaviour of gitignore specs and glob it need a lot of adjustments.
+
+`/target/**` will list all the target sub directories but won't list the target directory's content for that you need to use `/target/*`.
+
+`!` is not supported yet.
+
 ## Resources
 
 - https://doc.rust-lang.org/std/result/
